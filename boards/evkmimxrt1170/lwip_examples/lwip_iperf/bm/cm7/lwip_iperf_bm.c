@@ -13,11 +13,14 @@
 
 #include "lwip/opt.h"
 
-#if LWIP_IPV4 && LWIP_TCP && LWIP_UDP
+#if LWIP_IPV4 && LWIP_TCP && LWIP_UDP && LWIP_DHCP
 
 #include "lwip/apps/lwiperf.h"
 #include "lwip/timeouts.h"
+#include "lwip/ip_addr.h"
 #include "lwip/init.h"
+#include "lwip/dhcp.h"
+#include "lwip/prot/dhcp.h"
 #include "netif/ethernet.h"
 #include "ethernetif.h"
 
@@ -31,7 +34,7 @@
 #if BOARD_NETWORK_USE_100M_ENET_PORT
 #include "fsl_phyksz8081.h"
 #else
-#include "fsl_phyrtl8211f.h"
+#include "fsl_phydp83867ir.h"
 #endif
 #include "fsl_enet.h"
 /*******************************************************************************
@@ -97,11 +100,11 @@ extern phy_ksz8081_resource_t g_phy_resource;
 /* Address of PHY interface. */
 #define EXAMPLE_PHY_ADDRESS   BOARD_ENET1_PHY_ADDRESS
 /* PHY operations. */
-#define EXAMPLE_PHY_OPS       &phyrtl8211f_ops
+#define EXAMPLE_PHY_OPS       &phydp83867ir_ops
 /* ENET instance select. */
 #define EXAMPLE_NETIF_INIT_FN ethernetif1_init
 
-extern phy_rtl8211f_resource_t g_phy_resource;
+extern phy_dp83867ir_resource_t g_phy_resource;
 #endif
 
 /* PHY resource. */
@@ -140,7 +143,7 @@ extern phy_rtl8211f_resource_t g_phy_resource;
 #if BOARD_NETWORK_USE_100M_ENET_PORT
 phy_ksz8081_resource_t g_phy_resource;
 #else
-phy_rtl8211f_resource_t g_phy_resource;
+phy_dp83867ir_resource_t g_phy_resource;
 #endif
 
 static phy_handle_t phyHandle;
@@ -206,6 +209,77 @@ static status_t MDIO_Read(uint8_t phyAddr, uint8_t regAddr, uint16_t *pData)
 void SysTick_Handler(void)
 {
     time_isr();
+}
+
+/*!
+ * @brief Prints DHCP status of the interface when it has changed from last status.
+ *
+ * @param netif network interface structure
+ */
+static u8_t print_dhcp_state(struct netif *netif)
+{
+    static u8_t dhcp_last_state = DHCP_STATE_OFF;
+    struct dhcp *dhcp           = netif_dhcp_data(netif);
+
+    if (dhcp == NULL)
+    {
+        dhcp_last_state = DHCP_STATE_OFF;
+    }
+    else if (dhcp_last_state != dhcp->state)
+    {
+        dhcp_last_state = dhcp->state;
+
+        PRINTF(" DHCP state       : ");
+        switch (dhcp_last_state)
+        {
+            case DHCP_STATE_OFF:
+                PRINTF("OFF");
+                break;
+            case DHCP_STATE_REQUESTING:
+                PRINTF("REQUESTING");
+                break;
+            case DHCP_STATE_INIT:
+                PRINTF("INIT");
+                break;
+            case DHCP_STATE_REBOOTING:
+                PRINTF("REBOOTING");
+                break;
+            case DHCP_STATE_REBINDING:
+                PRINTF("REBINDING");
+                break;
+            case DHCP_STATE_RENEWING:
+                PRINTF("RENEWING");
+                break;
+            case DHCP_STATE_SELECTING:
+                PRINTF("SELECTING");
+                break;
+            case DHCP_STATE_INFORMING:
+                PRINTF("INFORMING");
+                break;
+            case DHCP_STATE_CHECKING:
+                PRINTF("CHECKING");
+                break;
+            case DHCP_STATE_BOUND:
+                PRINTF("BOUND");
+                break;
+            case DHCP_STATE_BACKING_OFF:
+                PRINTF("BACKING_OFF");
+                break;
+            default:
+                PRINTF("%u", dhcp_last_state);
+                assert(0);
+                break;
+        }
+        PRINTF("\r\n");
+
+        if (dhcp_last_state == DHCP_STATE_BOUND)
+        {
+            PRINTF("\r\n IPv4 Address     : %s\r\n", ipaddr_ntoa(&netif->ip_addr));
+            PRINTF(" IPv4 Subnet mask : %s\r\n", ipaddr_ntoa(&netif->netmask));
+            PRINTF(" IPv4 Gateway     : %s\r\n\r\n", ipaddr_ntoa(&netif->gw));
+        }
+    }
+    return dhcp_last_state;
 }
 
 /* Report state => string */
@@ -397,6 +471,7 @@ int main(void)
                                        .macAddress = configMAC_ADDR
 #endif
     };
+    u8_t dhcp_state = DHCP_STATE_OFF;
 
     gpio_pin_config_t gpio_config = {kGPIO_DigitalOutput, 0, kGPIO_NoIntmode};
 
@@ -443,20 +518,32 @@ int main(void)
     /* Get clock after hardware init. */
     enet_config.srcClockHz = EXAMPLE_CLOCK_FREQ;
 
-    IP4_ADDR(&netif_ipaddr, configIP_ADDR0, configIP_ADDR1, configIP_ADDR2, configIP_ADDR3);
-    IP4_ADDR(&netif_netmask, configNET_MASK0, configNET_MASK1, configNET_MASK2, configNET_MASK3);
-    IP4_ADDR(&netif_gw, configGW_ADDR0, configGW_ADDR1, configGW_ADDR2, configGW_ADDR3);
+    IP4_ADDR(&netif_ipaddr, 0U, 0U, 0U, 0U);
+    IP4_ADDR(&netif_netmask, 0U, 0U, 0U, 0U);
+    IP4_ADDR(&netif_gw, 0U, 0U, 0U, 0U);
 
     lwip_init();
 
     netif_add(&netif, &netif_ipaddr, &netif_netmask, &netif_gw, &enet_config, EXAMPLE_NETIF_INIT_FN, ethernet_input);
     netif_set_default(&netif);
     netif_set_up(&netif);
+    dhcp_start(&netif);
 
-    while (ethernetif_wait_linkup(&netif, 5000) != ERR_OK)
+    while (dhcp_state!=DHCP_STATE_BOUND)
     {
-        PRINTF("PHY Auto-negotiation failed. Please check the cable connection and link partner setting.\r\n");
+        /* Poll the driver, get any outstanding frames */
+        ethernetif_input(&netif);
+
+        /* Handle all system timeouts for all core protocols */
+        sys_check_timeouts();
+
+        /* Print DHCP progress */
+        dhcp_state = print_dhcp_state(&netif);
     }
+
+    netif_ipaddr = netif.ip_addr;
+    netif_netmask = netif.netmask;
+    netif_gw = netif.gw;
 
     PRINTF("\r\n************************************************\r\n");
     PRINTF(" IPERF example\r\n");
