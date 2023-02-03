@@ -33,7 +33,7 @@
 #if BOARD_NETWORK_USE_100M_ENET_PORT
 #include "fsl_phyksz8081.h"
 #else
-#include "fsl_phyrtl8211f.h"
+#include "fsl_phydp83867ir.h"
 #endif
 #include "fsl_enet.h"
 /*******************************************************************************
@@ -94,12 +94,12 @@ extern phy_ksz8081_resource_t g_phy_resource;
 /* ENET instance select. */
 #define EXAMPLE_NETIF_INIT_FN ethernetif0_init
 #else
-extern phy_rtl8211f_resource_t g_phy_resource;
+extern phy_dp83867ir_resource_t g_phy_resource;
 #define EXAMPLE_ENET          ENET_1G
 /* Address of PHY interface. */
 #define EXAMPLE_PHY_ADDRESS   BOARD_ENET1_PHY_ADDRESS
 /* PHY operations. */
-#define EXAMPLE_PHY_OPS       &phyrtl8211f_ops
+#define EXAMPLE_PHY_OPS       &phydp83867ir_ops
 /* ENET instance select. */
 #define EXAMPLE_NETIF_INIT_FN ethernetif1_init
 #endif
@@ -126,7 +126,7 @@ extern phy_rtl8211f_resource_t g_phy_resource;
 #if BOARD_NETWORK_USE_100M_ENET_PORT
 phy_ksz8081_resource_t g_phy_resource;
 #else
-phy_rtl8211f_resource_t g_phy_resource;
+phy_dp83867ir_resource_t g_phy_resource;
 #endif
 
 static phy_handle_t phyHandle;

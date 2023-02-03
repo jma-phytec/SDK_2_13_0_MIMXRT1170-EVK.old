@@ -9760,6 +9760,23 @@ ${load}</script>
         <include_path relative_path="./" type="c_include"/>
       </include_paths>
     </component>
+    <component id="driver.phy-device-dp83867ir.MIMXRT1176" name="phy-device-dp83867ir" brief="Driver phy-device-dp83867ir" version="2.0.0" full_name="Driver phy-device-dp83867ir" devices="MIMXRT1176xxxxx" user_visible="true" type="board_component" package_base_path="components/phy/device/phydp83867ir" project_base_path="component/phy">
+      <dependencies>
+        <component_dependency value="driver.phy-common.MIMXRT1176"/>
+      </dependencies>
+      <source relative_path="./" type="c_include">
+        <files mask="fsl_phydp83867ir.h"/>
+      </source>
+      <source relative_path="./" type="src">
+        <files mask="fsl_phydp83867ir.c"/>
+      </source>
+      <source toolchain="armgcc" relative_path="." type="workspace" device_cores="cm7_MIMXRT1176xxxxx">
+        <files mask="driver_phy-device-dp83867ir_MIMXRT1176_cm7.cmake" hidden="true"/>
+      </source>
+      <include_paths>
+        <include_path relative_path="./" type="c_include"/>
+      </include_paths>
+    </component>
     <component id="platform.drivers.pit.MIMXRT1176" name="pit" brief="PIT Driver" version="2.0.4" full_name="PIT Driver" devices="MIMXRT1176xxxxx" device_cores="cm4_MIMXRT1176xxxxx cm7_MIMXRT1176xxxxx" slave_roles="M4SLAVE M7SLAVE" user_visible="true" type="driver" package_base_path="devices/MIMXRT1176/drivers" project_base_path="drivers">
       <dependencies>
         <component_dependency value="platform.drivers.common.MIMXRT1176"/>

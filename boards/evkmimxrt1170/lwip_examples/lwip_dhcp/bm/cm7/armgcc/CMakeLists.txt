@@ -57,6 +57,7 @@ target_include_directories(${MCUX_SDK_PROJECT_NAME} PUBLIC
 set(CMAKE_MODULE_PATH
     ${SdkRootDirPath}/components/phy/device/phyksz8081
     ${SdkRootDirPath}/components/phy/device/phyrtl8211f
+    ${SdkRootDirPath}/components/phy/device/dp83867ir
     ${SdkRootDirPath}/middleware/lwip
     ${SdkRootDirPath}/components/phy
     ${SdkRootDirPath}/devices/MIMXRT1176/drivers
@@ -78,6 +79,8 @@ set(CMAKE_MODULE_PATH
 include(driver_phy-device-ksz8081_MIMXRT1176_cm7)
 
 include(driver_phy-device-rtl8211f_MIMXRT1176_cm7)
+
+include(driver_phy-device-dp83867ir_MIMXRT1176_cm7)
 
 include(middleware_lwip_enet_ethernetif_MIMXRT1176_cm7)
 
